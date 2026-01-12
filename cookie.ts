@@ -385,7 +385,7 @@ export async function extractCookie(ip?: string): Promise<{ userAgent: string, c
         userAgent: glue[ip || 'default']!.toString()
     });
 
-    await page.goto("https://" + s.ps_base + ".powerschool.com/public/", { waitUntil: 'networkidle2' });
+    await page.goto("https://" + s.ps_base + `.powerschool.com/${s.guardian ? "public" : "teachers"}/`, { waitUntil: 'networkidle2' });
 
     // Evaluate code in the context of the page
     const cookie = await page.evaluate(() => {
