@@ -1,0 +1,8 @@
+asyncio
+async_timeout
+dotenv
+pytz
+beautifulsoup4
+aiohttp
+fastapi
+uvicorn

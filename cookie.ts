@@ -1,6 +1,5 @@
 import vm from 'node:vm';
 import { fetch } from 'undici';
-import { load, schema } from '../configshare/index.ts';
 import UserAgent from 'user-agents';
 import puppeteer from 'puppeteer';
 import { parseSync } from 'oxc-parser';
@@ -8,7 +7,7 @@ import type * as estree from "estree";
 import UndetectedBrowser from 'undetected-browser';
 import elysia from 'elysia';
 import { JSDOM } from 'jsdom';
-import { lightpanda } from '@lightpanda/browser';
+import 'dotenv/config';
 
 function parseUA(userAgent: string): Partial<Navigator> {
     let ua = userAgent.split(' ').map(part => {
@@ -41,15 +40,16 @@ function fauxNavigator(userAgent: string): Navigator {
     } as Partial<Navigator> as Navigator;
 }
 
-const s = schema(load('psp9000'))
-    .string('ps_base', 'default_base')
-    .string('ps_username', 'default_username')
-    .string('ps_password', 'default_password')
-    .section('env', (env) =>
-        env
-            .string('NODE_ENV', 'production')
-            .number('port', 8080)
-    ).build();
+const s = {
+    ps_base: process.env.PS_BASE || "holyghostprep",
+    ps_username: process.env.PS_USERNAME || "your_username",
+    ps_password: process.env.PS_PASSWORD || "your_password",
+    guardian: process.env.PS_GUARDIAN === 'true' || false,
+    env: {
+        NODE_ENV: process.env.NODE_ENV || "production",
+        port: parseInt(process.env.COOKIE_PORT || '8080', 10)
+    }
+}
 
 export function runInContext(code: string, contextObj: Record<string, any> = {}, timeout: number = 1000): any {
     const context = vm.createContext(contextObj);
@@ -552,4 +552,8 @@ async function autorenewCookies() {
         }
         await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000));
     }
+}
+
+async function pullDaily() {
+
 }
