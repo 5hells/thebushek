@@ -2,12 +2,14 @@ import { fetch } from 'undici';
 import { JSDOM } from 'jsdom';
 import { login, extractCookie } from './cookie';
 import schedulemap from './schedulemap';
+import puppeteer from 'puppeteer';
+import UndetectedBrowser from 'undetected-browser';
 
 const s = {
-    ps_base: "holyghostprep",
+    ps_base: process.env.PS_BASE || "holyghostprep",
     ps_username: process.env.PS_USERNAME || "your_username",
     ps_password: process.env.PS_PASSWORD || "your_password",
-    guardian: false,
+    guardian: process.env.PS_GUARDIAN === 'true' || false,
     frn: process.env.PS_FRN || "0052052", // Faculty Resource Number
     schoology_api: process.env.SCHOOLOGY_API_URL || "http://localhost:8000",
 };
@@ -45,28 +47,98 @@ export async function fetchScheduleMatrix(
     password: string,
     frn: string = s.frn
 ): Promise<ScheduleMatrix[]> {
-    // Get cookie
-    const { cookie: initialCookie, userAgent } = await extractCookie();
-    const { cookie: loginCookie } = await login(initialCookie, username, password);
-    const fullCookie = initialCookie + '; ' + loginCookie;
-
-    // Fetch schedule matrix
-    const url = `https://${s.ps_base}.powerschool.com/teachers/schedulematrix_content.html?frn=${frn}&includeCoTeachSections=1&showOnlyActiveRole=1&_=${Date.now()}`;
-    
-    const response = await fetch(url, {
-        headers: {
-            'User-Agent': userAgent,
-            'Cookie': fullCookie,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    // Launch browser for PowerSchool navigation
+    const browser = await new UndetectedBrowser(await puppeteer.launch({
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu',
+            '--window-size=1280,800',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-site-isolation-trials',
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        ],
+        defaultViewport: {
+            width: 1280,
+            height: 800
         },
-    });
+        browser: "chrome"
+    })).getBrowser();
 
-    if (!response.ok) {
-        throw new Error(`Failed to fetch schedule matrix: ${response.status} ${response.statusText}`);
+    try {
+        const page = await browser.newPage();
+
+        // Set user agent
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+        // Navigate to PowerSchool login page
+        const loginUrl = `https://${s.ps_base}.powerschool.com/${s.guardian ? "public" : "teachers"}/`;
+        console.log(`Navigating to: ${loginUrl}`);
+        await page.goto(loginUrl, { waitUntil: 'networkidle2' });
+
+        // Wait for login form and fill it
+        await page.waitForSelector('#s-user-login-form', { timeout: 10000 });
+
+        // Fill username and password
+        await page.type('input[name="mail"]', username);
+        await page.type('input[name="pass"]', password);
+
+        // Find and fill any additional form fields
+        const form = await page.$('#s-user-login-form');
+        if (form) {
+            const inputs = await form.$$('input');
+            for (const input of inputs) {
+                const name = await input.evaluate(el => el.getAttribute('name'));
+                if (name && name !== 'mail' && name !== 'pass') {
+                    const value = await input.evaluate(el => el.getAttribute('value') || '');
+                    if (value) {
+                        await input.type(value);
+                    }
+                }
+            }
+        }
+
+        // Submit the form
+        await page.click('#s-user-login-form input[type="submit"], #s-user-login-form button[type="submit"]');
+
+        // Wait for navigation after login
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+
+        // Check if login was successful
+        const currentUrl = page.url();
+        const pageContent = await page.content();
+
+        if (pageContent.includes('Invalid username or password') ||
+            currentUrl.toLowerCase().includes('login') ||
+            pageContent.toLowerCase().includes('login')) {
+            throw new Error('Login failed - invalid credentials or still on login page');
+        }
+
+        console.log('Login successful, navigating to schedule matrix...');
+
+        // Navigate to schedule matrix
+        const scheduleUrl = `https://${s.ps_base}.powerschool.com/teachers/schedulematrix_content.html?frn=${frn}&includeCoTeachSections=1&showOnlyActiveRole=1&_=${Date.now()}`;
+        console.log(`Fetching schedule from: ${scheduleUrl}`);
+
+        await page.goto(scheduleUrl, { waitUntil: 'networkidle2' });
+
+        // Extract the HTML content
+        const html = await page.content();
+
+        console.log('Schedule matrix fetched successfully');
+
+        return parseScheduleMatrix(html);
+
+    } finally {
+        // Always close the browser
+        await browser.close();
     }
-
-    const html = await response.text();
-    return parseScheduleMatrix(html);
 }
 
 /**

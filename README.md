@@ -1,7 +1,3 @@
-# run
-```
-bun cookie:start
-bun schoology:start
-bun api:start
-bun schedule:start
-```
+# PowerSchool Schedule Automation
+
+Complete automation system for fetching PowerSchool schedules and integrating with Schoology for daily schedule types.
