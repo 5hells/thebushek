@@ -40,6 +40,8 @@ function App() {
 
   const [upcomingPeriods, setUpcomingPeriods] = useState<Period[]>([]);
 
+  const [autoPopup, setAutoPopup] = useState(true);
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -65,6 +67,11 @@ function App() {
         const t = (cycleTime - scaleUpDuration - visibleDuration) / scaleDownDuration;
         popupScale = 1 - (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
       }
+
+      if (!autoPopup) {
+        popupScale = 0;
+      }
+
       setTimeDisplayOpacity(1 - popupScale * 0.5);
 
       popupScaleRef.current = popupScale;
@@ -114,7 +121,7 @@ function App() {
       }
       clearInterval(scheduleInterval);
     };
-  }, [periods]);
+  }, [periods, autoPopup]);
 
   useEffect(() => {
     const toggleInterval = setInterval(() => {
@@ -126,6 +133,21 @@ function App() {
     }, 5000);
 
     return () => clearInterval(toggleInterval);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'Space') {
+        event.preventDefault();
+        setAutoPopup(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const loadSchedule = async () => {
@@ -449,7 +471,7 @@ function App() {
       }
       window.removeEventListener('resize', handleResize);
     };
-  }, [time, periods, upcomingPeriods]);
+  }, [time, periods, upcomingPeriods, autoPopup]);
 
   const formatDateDuration = (durationMs: number) => {
     const totalSeconds = Math.floor(durationMs / 1000);
