@@ -139,7 +139,7 @@ function App() {
       const colorMap: { [key: string]: string } = {};
 
       const processedPeriods = data.periods.map((period: any) => {
-        const periodName = period.name || period.label || 'Unknown';
+        const periodName = period.name;
         if (!colorMap[periodName]) {
           colorMap[periodName] = rainbowPastelRandom(periodName);
         }
@@ -149,7 +149,7 @@ function App() {
           label: periodName,
           color: colorMap[periodName]
         };
-      });
+      }).filter((period: Period) => period.label && period.label.trim());
 
       const periodsChanged = JSON.stringify(processedPeriods) !== JSON.stringify(periods);
       if (periodsChanged) {
