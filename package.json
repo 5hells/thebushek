@@ -8,7 +8,8 @@
     "schedule:start": "bun run schedule-daemon.ts",
     "api:start": "bun run schedule-api.ts",
     "cookie:start": "bun run cookie.ts",
-    "schoology:start": "python scheduling.py"
+    "schoology:start": "python scheduling.py",
+    "test:powerschool": "bun run powerschool-test.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.3.5"

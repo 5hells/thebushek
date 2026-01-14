@@ -78,7 +78,10 @@ export async function fetchScheduleMatrix(
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
         // Navigate to PowerSchool login page
-        const loginUrl = `https://${s.ps_base}.powerschool.com/${s.guardian ? "public" : "teachers"}/`;
+        const isLocal = s.ps_base.includes('localhost');
+        const baseUrl = isLocal ? s.ps_base : `${s.ps_base}.powerschool.com`;
+        const protocol = isLocal ? 'http' : 'https';
+        const loginUrl = `${protocol}://${baseUrl}/${s.guardian ? "public" : "teachers"}/`;
         console.log(`Navigating to: ${loginUrl}`);
         await page.goto(loginUrl, { waitUntil: 'networkidle2' });
 
@@ -122,8 +125,7 @@ export async function fetchScheduleMatrix(
 
         console.log('Login successful, navigating to schedule matrix...');
 
-        // Navigate to schedule matrix
-        const scheduleUrl = `https://${s.ps_base}.powerschool.com/teachers/schedulematrix_content.html?frn=${frn}&includeCoTeachSections=1&showOnlyActiveRole=1&_=${Date.now()}`;
+        const scheduleUrl = `${protocol}://${baseUrl}/teachers/schedulematrix_content.html?frn=${frn}&includeCoTeachSections=1&showOnlyActiveRole=1&_=${Date.now()}`;
         console.log(`Fetching schedule from: ${scheduleUrl}`);
 
         await page.goto(scheduleUrl, { waitUntil: 'networkidle2' });
@@ -250,11 +252,11 @@ function mapScheduleType(scheduleType: string): keyof typeof schedulemap {
     const normalized = scheduleType.toLowerCase();
     
     if (normalized.includes('morning meeting') || normalized === 'mm') {
-        return 'MM';
+        return 'MM Schedule';
     } else if (normalized.includes('x schedule') || normalized === 'x') {
-        return 'X';
+        return 'X Schedule';
     } else if (normalized.includes('a/b1') || normalized.includes('ab1')) {
-        return 'AB1';
+        return 'A/B1 Schedule';
     } else if (normalized.includes('daily')) {
         return 'Daily Schedule';
     } else if (normalized.includes('unum')) {
